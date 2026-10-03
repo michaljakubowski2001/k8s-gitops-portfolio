@@ -67,6 +67,14 @@ probe_from() { # namespace url -> exit code of curl inside a throwaway pod
 [[ $(probe_from default http://uptime-kuma.uptime-kuma.svc:3001/) == 1 ]] \
   && pass 'Pod in default namespace cannot reach Uptime Kuma' || fail 'Default namespace reached Uptime Kuma'
 
+if kubectl run psa-probe --namespace vaultwarden --image "$CURL_IMAGE" --dry-run=server \
+    --overrides '{"spec":{"containers":[{"name":"psa-probe","image":"'"$CURL_IMAGE"'","securityContext":{"privileged":true}}]}}' \
+    >/dev/null 2>&1; then
+  fail 'Pod Security admitted a privileged pod in vaultwarden'
+else
+  pass 'Pod Security (restricted) rejects a privileged pod in vaultwarden'
+fi
+
 echo '--- Self-healing'
 kubectl --namespace vaultwarden delete deployment vaultwarden --wait=true >/dev/null
 healed=false

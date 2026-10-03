@@ -1,0 +1,79 @@
+---
+name: GitOps end-to-end
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
+        with:
+          version: v4.3.0
+      - name: Install kubeconform with checksum verification
+        env:
+          VERSION: v0.8.0
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/yannh/kubeconform/releases/download/$VERSION"
+          curl -fsSLO "$base/kubeconform-linux-amd64.tar.gz"
+          curl -fsSLO "$base/CHECKSUMS"
+          grep ' kubeconform-linux-amd64.tar.gz$' CHECKSUMS | sha256sum --check
+          tar -xzf kubeconform-linux-amd64.tar.gz kubeconform
+          sudo install kubeconform /usr/local/bin/
+      - name: Render and validate every manifest
+        run: scripts/validate.sh
+
+  e2e:
+    needs: validate
+    # Fork pull requests get no secrets, so the SealedSecrets cannot decrypt.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Argo CD fetches this exact commit from GitHub; for a pull request that
+      # is the branch head, not the temporary merge commit.
+      REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2  # v1.15.0
+        with:
+          version: v0.33.0
+          install_only: true
+      - name: Restore the Sealed Secrets key
+        env:
+          SEALING_KEY_PEM: ${{ secrets.SEALING_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$SEALING_KEY_PEM" > "$RUNNER_TEMP/sealing.key"
+      - name: Create cluster and bootstrap Argo CD
+        env:
+          SEALING_KEY: ${{ runner.temp }}/sealing.key
+        run: scripts/bootstrap.sh "$REVISION"
+      - name: Wait for every Application to be Synced and Healthy
+        run: scripts/wait-for-apps.sh | tee "$RUNNER_TEMP/apps.txt"
+      - name: Smoke tests
+        run: scripts/smoke-test.sh | tee "$RUNNER_TEMP/smoke.txt"
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Revision \`${REVISION:0:7}\`"
+            for f in apps smoke; do
+              [[ -f "$RUNNER_TEMP/$f.txt" ]] && printf '```\n%s\n```\n' "$(tail -n 25 "$RUNNER_TEMP/$f.txt")"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Diagnostics
+        if: failure()
+        run: |
+          kubectl get applications.argoproj.io -A -o wide || true
+          kubectl get pods -A -o wide || true
+          kubectl get events -A --sort-by=.lastTimestamp | tail -60 || true

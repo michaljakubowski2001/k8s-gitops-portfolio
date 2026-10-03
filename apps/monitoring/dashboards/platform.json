@@ -131,7 +131,7 @@
     },
     {
       "id": 3,
-      "title": "Root disk utilization",
+      "title": "Disk utilization",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -150,7 +150,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - max(node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"rootfs\"}))"
+          "expr": "100 * (1 - min(node_filesystem_avail_bytes{mountpoint=~\"/|/var\",fstype!~\"rootfs|tmpfs|overlay\"} / node_filesystem_size_bytes{mountpoint=~\"/|/var\",fstype!~\"rootfs|tmpfs|overlay\"}))"
         }
       ],
       "fieldConfig": {
@@ -185,7 +185,8 @@
         },
         "colorMode": "value",
         "graphMode": "area"
-      }
+      },
+      "description": "Largest of / and /var. On kind the root is an overlay that node-exporter skips; /var holds images and volumes."
     },
     {
       "id": 4,
@@ -242,7 +243,7 @@
     },
     {
       "id": 5,
-      "title": "Argo CD apps not Synced/Healthy",
+      "title": "Apps out of sync",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -291,7 +292,8 @@
         },
         "colorMode": "value",
         "graphMode": "area"
-      }
+      },
+      "description": "Argo CD Applications that are not Synced or not Healthy."
     },
     {
       "id": 6,

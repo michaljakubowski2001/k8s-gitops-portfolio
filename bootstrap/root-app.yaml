@@ -1,0 +1,23 @@
+# The only Application created by hand. Everything else is rendered from
+# the platform chart, pinned to the same Git revision as this one.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/michaljakubowski2001/k8s-gitops-portfolio.git
+    targetRevision: main
+    path: platform
+    helm:
+      valuesObject:
+        revision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

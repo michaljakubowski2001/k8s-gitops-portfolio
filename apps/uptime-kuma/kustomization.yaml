@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: uptime-kuma
+labels:
+  - pairs:
+      app.kubernetes.io/name: uptime-kuma
+      app.kubernetes.io/part-of: k8s-gitops-portfolio
+    includeSelectors: false
+resources:
+  - kuma-admin.sealedsecret.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - configure-job.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+configMapGenerator:
+  - name: kuma-configure
+    files:
+      - configure-kuma.cjs
+      - monitors.json

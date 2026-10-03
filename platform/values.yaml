@@ -1,0 +1,4 @@
+# Git revision the child Applications track. CI overrides it with the
+# commit under test so every component comes from the same commit.
+revision: main
+repoURL: https://github.com/michaljakubowski2001/k8s-gitops-portfolio.git

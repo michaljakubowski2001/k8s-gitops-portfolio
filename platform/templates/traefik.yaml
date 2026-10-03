@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: 41.6.1
+    helm:
+      valuesObject:
+        deployment:
+          replicas: 1
+        ingressClass:
+          enabled: true
+          isDefaultClass: true
+        providers:
+          kubernetesIngress:
+            enabled: true
+          kubernetesCRD:
+            enabled: false
+        ports:
+          web:
+            nodePort: 30080
+          websecure:
+            expose:
+              default: false
+        service:
+          type: NodePort
+        metrics:
+          prometheus:
+            serviceMonitor:
+              enabled: false
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {memory: 128Mi}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  {{- include "platform.syncPolicy" (dict "options" (list "CreateNamespace=true") "labels" (dict "pod-security.kubernetes.io/enforce" "restricted")) | nindent 2 }}

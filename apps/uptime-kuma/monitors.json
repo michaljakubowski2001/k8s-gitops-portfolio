@@ -1,0 +1,6 @@
+[
+  {"name": "Vaultwarden", "url": "http://vaultwarden.vaultwarden.svc:8080/alive"},
+  {"name": "Grafana", "url": "http://kube-prometheus-stack-grafana.monitoring.svc/api/health"},
+  {"name": "Prometheus", "url": "http://kube-prometheus-stack-prometheus.monitoring.svc:9090/-/ready"},
+  {"name": "Argo CD", "url": "http://argocd-server.argocd.svc/healthz"}
+]

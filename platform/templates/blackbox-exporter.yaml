@@ -1,0 +1,34 @@
+# Synthetic HTTP checks of every user-facing service, scraped by Prometheus.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: blackbox-exporter
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus-blackbox-exporter
+    targetRevision: 11.19.1
+    helm:
+      valuesObject:
+        resources:
+          requests: {cpu: 10m, memory: 24Mi}
+          limits: {memory: 64Mi}
+        serviceMonitor:
+          enabled: true
+          defaults:
+            module: http_2xx
+            interval: 30s
+          targets:
+            - name: vaultwarden
+              url: http://vaultwarden.vaultwarden.svc:8080/alive
+            - name: uptime-kuma
+              url: http://uptime-kuma.uptime-kuma.svc:3001/
+            - name: grafana
+              url: http://kube-prometheus-stack-grafana.monitoring.svc/api/health
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  {{- include "platform.syncPolicy" (dict) | nindent 2 }}

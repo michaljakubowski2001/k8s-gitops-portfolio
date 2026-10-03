@@ -1,0 +1,87 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 91.9.0
+    helm:
+      valuesObject:
+        alertmanager:
+          enabled: false
+        # Control-plane components bind to localhost on kind and k3s;
+        # scraping them would only add permanently failing targets.
+        kubeEtcd: {enabled: false}
+        kubeScheduler: {enabled: false}
+        kubeControllerManager: {enabled: false}
+        kubeProxy: {enabled: false}
+        prometheusOperator:
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {memory: 128Mi}
+        kube-state-metrics:
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 96Mi}
+        prometheus-node-exporter:
+          resources:
+            requests: {cpu: 10m, memory: 24Mi}
+            limits: {memory: 64Mi}
+        prometheus:
+          prometheusSpec:
+            retention: 2d
+            # Pick up ServiceMonitors and Probes from every Application,
+            # not only those labelled for this Helm release.
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            probeSelectorNilUsesHelmValues: false
+            resources:
+              requests: {cpu: 100m, memory: 384Mi}
+              limits: {memory: 768Mi}
+          additionalServiceMonitors:
+            - name: argocd
+              namespaceSelector:
+                matchNames: [argocd]
+              selector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values: [argocd-metrics, argocd-server-metrics, argocd-repo-server]
+              endpoints:
+                - port: metrics
+        grafana:
+          admin:
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts: [grafana.localhost]
+          grafana.ini:
+            server:
+              root_url: http://grafana.localhost:8080
+            auth.anonymous:
+              enabled: true
+              org_role: Viewer
+            users:
+              allow_sign_up: false
+            analytics:
+              reporting_enabled: false
+              check_for_updates: false
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+          resources:
+            requests: {cpu: 50m, memory: 192Mi}
+            limits: {memory: 384Mi}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  {{- include "platform.syncPolicy" (dict "options" (list "ServerSideApply=true")) | nindent 2 }}

@@ -20,6 +20,12 @@ spec:
         providers:
           kubernetesIngress:
             enabled: true
+            # A NodePort has no load-balancer address to publish. Report the
+            # loopback address instead so Ingresses become Healthy in Argo CD.
+            publishedService:
+              enabled: false
+            ingressEndpoint:
+              ip: 127.0.0.1
           kubernetesCRD:
             enabled: false
         ports:
@@ -29,7 +35,8 @@ spec:
             expose:
               default: false
         service:
-          type: NodePort
+          spec:
+            type: NodePort
         metrics:
           prometheus:
             serviceMonitor:

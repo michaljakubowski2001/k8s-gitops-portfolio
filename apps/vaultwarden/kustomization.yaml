@@ -5,7 +5,9 @@ labels:
   - pairs:
       app.kubernetes.io/name: vaultwarden
       app.kubernetes.io/part-of: k8s-gitops-portfolio
-    includeSelectors: true
+    # Selectors are explicit: with includeSelectors kustomize would also add
+    # these labels to the podSelectors in NetworkPolicy rules.
+    includeSelectors: false
 resources:
   - pvc.yaml
   - deployment.yaml

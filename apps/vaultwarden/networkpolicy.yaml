@@ -13,7 +13,9 @@ kind: NetworkPolicy
 metadata:
   name: vaultwarden
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: server
   policyTypes: [Ingress, Egress]
   ingress:
     - from:
